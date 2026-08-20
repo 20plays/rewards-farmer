@@ -17,11 +17,13 @@ import element_selectors
 class RewardsTaskUtils:
 	def __init__(self, driver: webdriver.Edge):
 		self.driver = driver
+
+		self.driver.get("https://rewards.bing.com/")
+
 		self.tab_utils = tab_utils.TabUtils(driver)
 		self.mouse = mouse_trajectory.MouseUtils(driver)
 		self.keyboard = mimic_typing.KeyboardUtils(driver)
 		self.elements = element_selectors.ElementSelectionUtils(driver)
-		self.driver.get("https://rewards.bing.com/")
 
 	def find_element(self, xpath: str):
 		return self.driver.find_element(By.XPATH, xpath)
