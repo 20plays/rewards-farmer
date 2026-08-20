@@ -1,4 +1,4 @@
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import WebDriverException, JavascriptException
 from selenium import webdriver
 
 GHOST_TAB_URL = "https://ntp.msn.com/edge/ntp?locale=en-US&title=New%20tab&fre=1&dsp=1&sp=Bing&feed_dis=always&en_widget_reg=false&prerender=1&PC=U531"
@@ -9,13 +9,15 @@ class TabUtils:
 		self.problematic_tabs = set()
 
 	def ensure_focus(self):
-		self.driver.execute_script("""
+		try:
+			self.driver.execute_script("""
 Object.defineProperty(document, 'hidden', { get: () => false });
 Object.defineProperty(document, 'visibilityState', { get: () => 'visible' });
 Document.prototype.hasFocus = function() { return true; };
 window.hasFocus = function() { return true; };
 document.dispatchEvent(new Event('visibilitychange'));
 """)
+		except JavascriptException: pass # it's probably a property redef exc
 
 	def switch_to_other_tab(self):
 		current_window = self.driver.current_window_handle
