@@ -21,6 +21,8 @@ class RewardsTaskUtils:
 		self.driver.get("https://rewards.bing.com/")
 
 		self.tab_utils = tab_utils.TabUtils(driver)
+		self.tab_utils.ensure_focus()
+
 		self.mouse = mouse_trajectory.MouseUtils(driver)
 		self.keyboard = mimic_typing.KeyboardUtils(driver)
 		self.elements = element_selectors.ElementSelectionUtils(driver)
@@ -150,6 +152,7 @@ class RewardsTaskUtils:
 		searches_needed = (max_pts - points_earned) // 5
 
 		self.driver.get("https://www.bing.com/")
+		self.tab_utils.ensure_focus()
 
 		self.wait_for_element(self.elements.get_bing_search_bar)
 
@@ -167,6 +170,7 @@ class RewardsTaskUtils:
 			self.move_to_and_click(self.elements.get_clear_bing_search_query_button())
 
 		self.driver.get("https://rewards.bing.com/")
+		self.tab_utils.ensure_focus()
 
 		self.switch_to_earn_page()
 

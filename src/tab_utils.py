@@ -8,6 +8,15 @@ class TabUtils:
 		self.driver = driver
 		self.problematic_tabs = set()
 
+	def ensure_focus(self):
+		self.driver.execute_script("""
+Object.defineProperty(document, 'hidden', { get: () => false });
+Object.defineProperty(document, 'visibilityState', { get: () => 'visible' });
+Document.prototype.hasFocus = function() { return true; };
+window.hasFocus = function() { return true; };
+document.dispatchEvent(new Event('visibilitychange'));
+""")
+
 	def switch_to_other_tab(self):
 		current_window = self.driver.current_window_handle
 
@@ -16,6 +25,8 @@ class TabUtils:
 				self.driver.switch_to.window(handle)
 
 				if self.driver.current_url == GHOST_TAB_URL: continue
+
+				self.ensure_focus()
 				return
 
 	def close_all_other_tabs(self, exceptions: list[str] = None):
