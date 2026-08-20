@@ -99,6 +99,8 @@ class RewardsTaskUtils:
 			self.tab_utils.switch_to_other_tab()
 			self.tab_utils.close_all_other_tabs()
 
+		time.sleep(random.uniform(1, 2)) # allow card statuses to update
+
 		for card in explore_on_bing_links:
 			if not self.elements.card_is_complete(card):
 				print(f"[WARNING] Explore on Bing Card [desc={self.elements.extract_card_descriptions(card)!r}] is not complete after searching. Please check manually.")
@@ -128,9 +130,12 @@ class RewardsTaskUtils:
 
 		misc_cards: list[WebElement] = self.wait_for_element(self.elements.get_all_misc_cards)
 
+		scroll_times = 0
+
 		for card in misc_cards:
 			while not self.elements.element_is_fully_in_viewport(card): # this should work for top-down iteration
 				ActionChains(self.driver).scroll_by_amount(0, 100).perform()
+				scroll_times+=1
 
 			if not self.elements.card_is_complete(card) and self.elements.get_card_point_value(card) > 0:
 				self.move_to_and_click(card)
@@ -142,6 +147,9 @@ class RewardsTaskUtils:
 				print(f"[WARNING] Misc Card [desc={self.elements.extract_card_descriptions(card)!r}] is not complete after clicking. Please check manually.")
 
 		self.tab_utils.close_all_other_tabs()
+
+		for i in range(scroll_times):
+			ActionChains(self.driver).scroll_by_amount(0, -100).perform() # scroll back to top of page
 
 	def complete_required_searches(self):
 		self.switch_to_earn_page()

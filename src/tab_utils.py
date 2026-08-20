@@ -41,9 +41,13 @@ document.dispatchEvent(new Event('visibilitychange'));
 			if handle not in exceptions and handle not in self.problematic_tabs:
 				self.driver.switch_to.window(handle)
 
+
 				if self.driver.current_url == GHOST_TAB_URL: continue
 
-				try: self.driver.close()
+				try:
+					self.driver.close()
+					print(f"[INFO] Closed tab with handle {handle} and URL {self.driver.current_url}.")
+
 				except WebDriverException:
 					print(f"[WARNING] Could not close tab with handle {handle}.")
 					self.problematic_tabs.add(handle)
