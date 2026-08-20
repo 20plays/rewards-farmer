@@ -17,8 +17,6 @@ driver = webdriver.Edge(options=options)
 mouse = mouse_trajectory.MouseUtils(driver)
 keyboard = mimic_typing.KeyboardUtils(driver)
 
-driver.get("https://rewards.bing.com/")
-
 rewards = rewards_tasks.RewardsTaskUtils(driver)
 
 rewards.complete_all_tasks()
