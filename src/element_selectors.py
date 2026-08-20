@@ -61,6 +61,9 @@ class ElementSelectionUtils:
 	def get_bing_search_bar(self):
 		return self.driver.find_element(By.TAG_NAME, "textarea")
 
+	def get_clear_bing_search_query_button(self):
+		return self.driver.find_element(By.ID, "sw_clx")
+
 	def get_visual_search_button(self):
 		return self.driver.find_element(By.CSS_SELECTOR, "#sb_form > div.camera.icon")
 

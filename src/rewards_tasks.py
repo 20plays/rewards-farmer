@@ -110,8 +110,6 @@ class RewardsTaskUtils:
 
 		self.tab_utils.switch_to_other_tab()
 
-		self.mouse.reinitialize()
-
 		self.wait_for_then_click(self.elements.get_visual_search_button)
 
 		file_input = self.wait_for_element(self.elements.get_visual_search_file_input)
@@ -122,8 +120,6 @@ class RewardsTaskUtils:
 
 		self.tab_utils.switch_to_other_tab()
 		self.tab_utils.close_all_other_tabs()
-
-		self.mouse.reinitialize()
 
 	def complete_misc_cards(self):
 		self.switch_to_earn_page()
@@ -145,28 +141,32 @@ class RewardsTaskUtils:
 
 		self.tab_utils.close_all_other_tabs()
 
-	def complete_twenty_searches(self):
+	def complete_required_searches(self):
+		self.switch_to_earn_page()
+		self.wait_for_then_click(self.elements.get_points_breakdown_button)
+		self.wait_for_element(self.elements.get_close_button_on_points_breakdown) # make sure sidebar loads
+
+		points_earned, max_pts = self.elements.get_points_earned_from_searches_on_points_breakdown()
+		searches_needed = (max_pts - points_earned) // 5
+
 		self.driver.get("https://www.bing.com/")
 
-		search_bar = self.wait_for_element(self.elements.get_bing_search_bar)
+		self.wait_for_element(self.elements.get_bing_search_bar)
 
 		# search bar should be auto-focused
 
-		for query in llm_utils.get_related_search_queries(
-			llm_utils.get_random_noun(), num_queries=20
+		for i, query in enumerate(
+			llm_utils.get_related_search_queries(
+				llm_utils.get_random_noun(), num_queries=searches_needed
+			)
 		):
 			self.keyboard.send_keys(query+Keys.ENTER)
 
-			time.sleep(random.uniform(2, 3))
+			time.sleep(random.uniform(0.5, 1))
 
-			# clear search bar for next query
-			# the 't' can be any character, it just needs to be there to
-			# auto-focus the search bar so that the backspaces will work
-			self.keyboard.send_keys('t'+Keys.BACKSPACE*(len(query)+1))
+			self.move_to_and_click(self.elements.get_clear_bing_search_query_button())
 
 		self.driver.get("https://rewards.bing.com/")
-
-		self.mouse.reinitialize()
 
 		self.switch_to_earn_page()
 
@@ -195,5 +195,5 @@ class RewardsTaskUtils:
 		self.complete_explore_on_bing_tasks()
 		self.complete_visual_search()
 		self.complete_misc_cards()
-		self.complete_twenty_searches()
+		self.complete_required_searches()
 		self.claim_bonus_points()

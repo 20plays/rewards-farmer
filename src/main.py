@@ -19,7 +19,7 @@ keyboard = mimic_typing.KeyboardUtils(driver)
 
 rewards = rewards_tasks.RewardsTaskUtils(driver)
 
-rewards.complete_all_tasks()
+rewards.complete_required_searches()
 
 input("Press Enter to exit...")
 

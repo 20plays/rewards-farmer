@@ -218,6 +218,7 @@ def choose_target_in_element(x: int, y: int, height: int, width: int) -> Point:
 class MouseUtils:
 	def __init__(self, driver: webdriver.Edge):
 		self.driver = driver
+		self.fallback_init_pos = (0, 0) # default fallback position if mouse position is not initialized
 		self.reinitialize()
 
 	def reinitialize(self):
@@ -225,14 +226,16 @@ class MouseUtils:
 		self.init_driver_with_cursor_visualization()
 
 	def init_driver_with_mouse_tracking(self):
-		js_tracker = """
-	window.cursorX = 0;
-	window.cursorY = 0;
-	document.addEventListener('mousemove', function(event) {
+		initial_pos = self.fallback_init_pos
+
+		js_tracker = f"""
+	window.cursorX = {initial_pos[0]};
+	window.cursorY = {initial_pos[1]};
+	document.addEventListener('mousemove', function(event) {{
 		console.log('Mouse moved to: ' + event.clientX + ', ' + event.clientY);
 		window.cursorX = event.clientX;
 		window.cursorY = event.clientY;
-	});
+	}});
 	"""
 		self.driver.execute_script(js_tracker)
 
@@ -265,6 +268,12 @@ class MouseUtils:
 		x = self.driver.execute_script("return window.cursorX;")
 		y = self.driver.execute_script("return window.cursorY;")
 
+		if (x, y) == (None, None):
+			self.reinitialize()
+			return self.get_current_mouse_position()
+
+		self.fallback_init_pos = (x, y)
+
 		return (x, y)
 
 	def move_mouse(self, move_time: float, path_function: Callable[[float], Point], visualize: bool=True):
@@ -280,6 +289,8 @@ class MouseUtils:
 			actions = ActionBuilder(self.driver, duration=0)
 			actions.pointer_action.move_to_location(point[0], point[1])
 			actions.perform()
+
+			self.fallback_init_pos = point
 
 			if visualize: self.driver.execute_script(f"window.moveVisualCursor({point[0]}, {point[1]});")
 
