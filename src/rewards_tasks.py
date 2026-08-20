@@ -96,7 +96,7 @@ class RewardsTaskUtils:
 
 		for card in explore_on_bing_links:
 			if not self.elements.card_is_complete(card):
-				print(f"WARNING: Explore on Bing Card [desc={self.elements.extract_card_descriptions(card)!r}] is not complete after searching. Please check manually.")
+				print(f"[WARNING] Explore on Bing Card [desc={self.elements.extract_card_descriptions(card)!r}] is not complete after searching. Please check manually.")
 
 	def complete_visual_search(self):
 		self.switch_to_earn_page()
@@ -138,7 +138,7 @@ class RewardsTaskUtils:
 
 		for card in misc_cards:
 			if not self.elements.card_is_complete(card) and self.elements.get_card_point_value(card) > 0:
-				print(f"WARNING: Misc Card [desc={self.elements.extract_card_descriptions(card)!r}] is not complete after clicking. Please check manually.")
+				print(f"[WARNING] Misc Card [desc={self.elements.extract_card_descriptions(card)!r}] is not complete after clicking. Please check manually.")
 
 		self.tab_utils.close_all_other_tabs()
 
