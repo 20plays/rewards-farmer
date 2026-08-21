@@ -194,7 +194,7 @@ class RewardsTaskUtils:
 
 		self.move_to_and_click(close_btn)
 
-		print(f"Points earned from 20 searches: {points_earned}/{max_pts}")
+		print(f"Points earned from {searches_needed} searches: {points_earned}/{max_pts}")
 
 	def claim_bonus_points(self):
 		self.switch_to_dashboard()
