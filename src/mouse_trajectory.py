@@ -2,6 +2,7 @@ import time
 from selenium.webdriver.common.actions.action_builder import ActionBuilder
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.common.exceptions import JavascriptException
 from selenium import webdriver
 from functools import partial
 import math
@@ -229,8 +230,8 @@ class MouseUtils:
 		initial_pos = self.fallback_init_pos
 
 		js_tracker = f"""
-	window.cursorX = {initial_pos[0]};
-	window.cursorY = {initial_pos[1]};
+	window.cursorX = {int(initial_pos[0])};
+	window.cursorY = {int(initial_pos[1])};
 	document.addEventListener('mousemove', function(event) {{
 		console.log('Mouse moved to: ' + event.clientX + ', ' + event.clientY);
 		window.cursorX = event.clientX;
@@ -265,8 +266,9 @@ class MouseUtils:
 		self.driver.execute_script(cursor_script)
 
 	def get_current_mouse_position(self) -> Point:
-		x = self.driver.execute_script("return window.cursorX;")
-		y = self.driver.execute_script("return window.cursorY;")
+		pos: dict[str, int] = self.driver.execute_script("return { x: window.cursorX, y: window.cursorY };")
+
+		x, y = pos['x'], pos['y']
 
 		if (x, y) == (None, None):
 			self.reinitialize()
@@ -292,7 +294,12 @@ class MouseUtils:
 
 			self.fallback_init_pos = point
 
-			if visualize: self.driver.execute_script(f"window.moveVisualCursor({point[0]}, {point[1]});")
+			if visualize:
+				try: self.driver.execute_script(f"window.moveVisualCursor({point[0]}, {point[1]});")
+				except JavascriptException: # some uninitialization has happened, reinitialize the cursor visualization
+					self.reinitialize()
+					self.driver.execute_script(f"window.moveVisualCursor({point[0]}, {point[1]});")
+
 
 	def move_to_element(self, element: WebElement, visualize: bool=True):
 		current_mouse_position = self.get_current_mouse_position()

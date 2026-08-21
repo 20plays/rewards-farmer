@@ -8,6 +8,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import StaleElementReferenceException
 import tab_utils
 import llm_utils
 import mouse_trajectory
@@ -168,14 +169,17 @@ class RewardsTaskUtils:
 
 		for i, query in enumerate(
 			llm_utils.get_related_search_queries(
-				llm_utils.get_random_noun(), num_queries=searches_needed
+				llm_utils.get_random_noun(), num_queries=20
 			)
 		):
 			self.keyboard.send_keys(query+Keys.ENTER)
 
 			time.sleep(random.uniform(0.5, 1))
 
-			self.move_to_and_click(self.elements.get_clear_bing_search_query_button())
+			try: self.wait_for_then_click(self.elements.get_clear_bing_search_query_button)
+			except StaleElementReferenceException:
+				print(f"[WARNING] StaleElementReferenceException when trying to click the clear button for query {i+1}. Trying again...")
+				self.wait_for_then_click(self.elements.get_clear_bing_search_query_button)
 
 		self.driver.get("https://rewards.bing.com/")
 		self.tab_utils.ensure_focus()
