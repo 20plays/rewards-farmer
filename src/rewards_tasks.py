@@ -169,7 +169,7 @@ class RewardsTaskUtils:
 
 		for i, query in enumerate(
 			llm_utils.get_related_search_queries(
-				llm_utils.get_random_noun(), num_queries=20
+				llm_utils.get_random_noun(), num_queries=searches_needed
 			)
 		):
 			self.keyboard.send_keys(query+Keys.ENTER)
