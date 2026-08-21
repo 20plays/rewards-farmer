@@ -8,7 +8,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.common.exceptions import StaleElementReferenceException
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 import tab_utils
 import llm_utils
 import mouse_trajectory
@@ -202,8 +202,8 @@ class RewardsTaskUtils:
 		self.wait_for_then_click(self.elements.get_bonus_button_on_dashboard)
 
 		try:
-			self.move_to_and_click(self.elements.get_claim_bonus_points_button())
-		except IndexError:
+			self.wait_for_then_click(self.elements.get_claim_bonus_points_button)
+		except TimeoutException:
 			print("[WARNING] Could not find the 'Claim Bonus Points' button. There are likely no bonus points to claim at this time.")
 
 	def complete_all_tasks(self):
