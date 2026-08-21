@@ -11,8 +11,9 @@ DEFAULT_SYSTEM_PROMPT_FOR_SEARCH_QUEST = (
 	"For example, if the directive is 'Search on Bing for the latest news about space exploration', you might output 'latest news space exploration'. "
 	"Outputting 'search on Bing for the latest news about space exploration' or 'search bing.com/news for space exploration' would be incorrect, "
 	"as those answers include instructions to perform a search rather than just the search query itself. "
-	"Additionally, try to be specific, e.g. if a prompt asks you to search for vacation flights or cruises, include "
-	"a location where you might want to go on vacation, or a specific cruise line or destination. The current year is 2026."
+	"Additionally, be specific, e.g. if a prompt asks you to search for vacation flights, include "
+	"a specific destination rather than just searching 'vacation flights'. The current year is 2026. "
+	"Make your query concise, ideally 6 words or less, and do not include any punctuation. "
 )
 
 DEFAULT_USER_PROMPT_FOR_SEARCH_QUEST_WITHOUT_DESC = """Base your search query on the following task description: """
