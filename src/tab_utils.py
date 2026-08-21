@@ -1,7 +1,10 @@
 from selenium.common.exceptions import WebDriverException, JavascriptException
 from selenium import webdriver
 
-GHOST_TAB_URL = "https://ntp.msn.com/edge/ntp?locale=en-US&title=New%20tab&fre=1&dsp=1&sp=Bing&feed_dis=always&en_widget_reg=false&prerender=1&PC=U531"
+GHOST_TAB_URLS = (
+	"https://ntp.msn.com/edge/ntp?locale=en-US&title=New%20tab&fre=1&dsp=1&sp=Bing&feed_dis=always&en_widget_reg=false&prerender=1&PC=U531", # has fre
+	"https://ntp.msn.com/edge/ntp?locale=en-US&title=New%20tab&dsp=1&sp=Bing&feed_dis=always&en_widget_reg=false&prerender=1&PC=U531" # no fre
+)
 
 class TabUtils:
 	def __init__(self, driver: webdriver.Edge):
@@ -26,7 +29,9 @@ document.dispatchEvent(new Event('visibilitychange'));
 			if handle != current_window and handle not in self.problematic_tabs:
 				self.driver.switch_to.window(handle)
 
-				if self.driver.current_url == GHOST_TAB_URL: continue
+				if self.driver.current_url in GHOST_TAB_URLS:
+					print(f"[INFO] Found ghost tab with handle {handle} and URL {self.driver.current_url}.")
+					continue
 
 				self.ensure_focus()
 				return
@@ -41,15 +46,18 @@ document.dispatchEvent(new Event('visibilitychange'));
 			if handle not in exceptions and handle not in self.problematic_tabs:
 				self.driver.switch_to.window(handle)
 
+				if self.driver.current_url in GHOST_TAB_URLS:
+					print(f"[INFO] Found ghost tab with handle {handle} and URL {self.driver.current_url}, not closing.")
+					continue
 
-				if self.driver.current_url == GHOST_TAB_URL: continue
+				tab_url = self.driver.current_url
 
 				try:
 					self.driver.close()
-					print(f"[INFO] Closed tab with handle {handle} and URL {self.driver.current_url}.")
+					print(f"[INFO] Closed tab with handle {handle} and URL {tab_url}.")
 
 				except WebDriverException:
-					print(f"[WARNING] Could not close tab with handle {handle}.")
+					print(f"[WARNING] Could not close tab with handle {handle} and URL {tab_url}.")
 					self.problematic_tabs.add(handle)
 					pass
 
