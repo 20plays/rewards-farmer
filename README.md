@@ -1,4 +1,6 @@
-# User0332/rewards-farmer
+# 20plays/rewards-farmer
+
+Fork of `User0332/rewards-farmer`, with additional reliability and provider support.
 
 Automation for MS Rewards based on [https://youtu.be/4qdPcMNaioA](https://youtu.be/4qdPcMNaioA).
 
@@ -9,7 +11,7 @@ IMPORTANT: Use at your own risk. Microsoft may take action against your account 
 Clone the repository.
 
 ```sh
-git clone https://github.com/User0332/rewards-farmer
+git clone https://github.com/20plays/rewards-farmer
 ```
 
 A sample `nouns.txt` file is included in the project root and can be modified by the user to contain seed words for the LLM to complete 20 searches. The wordlist should be separated by newline.
@@ -21,11 +23,11 @@ cd rewards-farmer
 
 # Where search queries come from
 
-The bot needs short strings to type into Bing. Two backends produce them, set with `QUERY_SOURCE`:
+The bot needs short strings to type into Bing. `QUERY_SOURCE` chooses how those strings are produced:
 
 | `QUERY_SOURCE` | Needs | Notes |
 | --- | --- | --- |
-| `llm` (default) | Ollama account + model | Current behaviour, unchanged |
+| `llm` (default) | a configured LLM provider | Ollama or an OpenAI-compatible chat-completions API |
 | `trends` | nothing | Google Trends, Wikipedia and Bing autosuggest |
 
 ```sh
@@ -33,9 +35,65 @@ QUERY_SOURCE=trends python src/main.py          # bash
 $env:QUERY_SOURCE="trends"; python src/main.py  # PowerShell
 ```
 
-`trends` needs no account, no API key and no model download, so the Ollama setup below is optional if you use it. If every feed is unreachable it falls back to `nouns.txt` rather than failing the run.
+`trends` needs no account, API key or model. If every feed is unreachable it falls back to `nouns.txt` rather than failing the run.
 
-You should also have an Ollama account created (for the LLM), the `ollama` tool installed, and you should have signed in to the Ollama CLI via the command line using `ollama signin`. This project will use a minimal amount of Ollama cloud usage using `gemma4:cloud`. If you wish to use a different model, please change the `model` parameter in the `get_ollama_response` function in `src/llm_utils.py`.
+## LLM providers and APIs
+
+When `QUERY_SOURCE=llm`, `LLM_PROVIDER` selects the transport:
+
+| `LLM_PROVIDER` | Configuration | What it supports |
+| --- | --- | --- |
+| `ollama` (default) | optional `LLM_MODEL`, `OLLAMA_HOST` or `LLM_BASE_URL` | local Ollama and Ollama cloud |
+| `openai` | `LLM_MODEL`, optional `LLM_BASE_URL`, `LLM_API_KEY` | any server implementing the OpenAI `/chat/completions` response shape |
+
+The OpenAI-compatible path is intentionally provider-neutral. It can point at a hosted API or a local server such as LM Studio, vLLM, llama.cpp server or LocalAI, as long as the endpoint accepts OpenAI-style chat completions.
+
+Environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `LLM_PROVIDER` | `ollama` | `ollama` or `openai` |
+| `LLM_MODEL` | `gemma4:cloud` for Ollama | model identifier; required for `openai` |
+| `LLM_BASE_URL` | `https://api.openai.com/v1` for `openai` | API base URL, or a full URL ending in `/chat/completions` |
+| `LLM_API_KEY` | unset | sent as `Authorization: Bearer ...`; local endpoints may leave it unset |
+| `LLM_TIMEOUT` | `180` | request timeout in seconds |
+| `LLM_EXTRA_HEADERS_JSON` | unset | optional JSON object of extra HTTP headers |
+| `OLLAMA_HOST` | Ollama client default | existing Ollama host setting; `LLM_BASE_URL` takes precedence |
+
+Example: native Ollama (the existing behavior):
+
+```sh
+QUERY_SOURCE=llm LLM_PROVIDER=ollama LLM_MODEL=gemma4:cloud python src/main.py
+```
+
+Example: a hosted OpenAI-compatible API:
+
+```sh
+QUERY_SOURCE=llm \
+LLM_PROVIDER=openai \
+LLM_MODEL="your-model-id" \
+LLM_BASE_URL="https://provider.example/v1" \
+LLM_API_KEY="your-api-key" \
+python src/main.py
+```
+
+Example: a local OpenAI-compatible server with no key:
+
+```sh
+QUERY_SOURCE=llm \
+LLM_PROVIDER=openai \
+LLM_MODEL="your-local-model" \
+LLM_BASE_URL="http://127.0.0.1:1234/v1" \
+python src/main.py
+```
+
+For providers that ask for additional headers, pass them without editing the source:
+
+```sh
+LLM_EXTRA_HEADERS_JSON='{"HTTP-Referer":"https://example.com","X-Title":"rewards-farmer"}'
+```
+
+Do not put real API keys in the repository. Set them in your shell, service manager, CI secret store, or another environment-injection mechanism.
 
 You must also provide an image for the script to upload to complete the visual search task. A helper script is included at `src/random_image_for_visual_search.py` that will download an image from Wikipedia named `visual_search.jpg` into the project root for you. You may also provide an image of your own, just ensure that the absolute path of the image is placed in the `VISUAL_SEARCH_IMAGE_PATH` constant at the top of `rewards_tasks.py`.
 
@@ -84,50 +142,68 @@ They run one after another, and an account that fails is reported and skipped ra
 
 # Docker
 
-Runs the bot without installing Edge, a driver or Python on the host.
+Docker runs the farmer without installing Edge, a matching driver, or Python on the host.
 
 ```sh
 docker compose build
 docker compose run --rm rewards-farmer
 ```
 
-The container defaults to `QUERY_SOURCE=trends`, so it needs no Ollama account and no model. Set `QUERY_SOURCE=llm` and `OLLAMA_HOST` to a reachable address to use a model instead.
+The container defaults to `QUERY_SOURCE=trends`, so it needs no model or API key. The compose file also passes through all of the LLM variables documented above.
 
-**Sign in first.** The profile in `data-dir` starts logged out and the container has no display to sign in with, so do it once on the host with a normal Edge window and let the volume carry it in:
-
-```
-msedge --user-data-dir="<repo>\data-dir" --profile-directory=Default https://rewards.bing.com
-```
-
-Close every window of that profile afterwards, and close them normally rather than killing the browser. Chromium allows one process per profile directory, so a window left open on the host stops the container from starting. A profile whose browser was killed is worse: it keeps a `SingletonLock` naming the machine that wrote it, the container reads that as the profile being open somewhere else, and it exits during startup with the same error a genuinely open window produces.
-
-**This does not work from a Windows host.** Chromium encrypts cookie values with a key held by the operating system, and on Windows that key is wrapped with DPAPI and tied to the Windows account that wrote it. The Linux container has no DPAPI, so it cannot unwrap the key and every cookie in the profile is unreadable to it. The volume carries the file in and the browser then ignores its contents: a profile signed in on the host reported 73 cookies on disk, of which Edge in the container could read 19 — the ones it had just set itself — while `.MSA.Auth` and `ANON`, the cookies the sign-in actually rests on, came back absent. The container starts, looks healthy and behaves as though it were logged out.
-
-Sign-in has to happen wherever the container will read it, so on a Windows host run the bot directly instead:
+For an Ollama server running on the host:
 
 ```sh
-python src/main.py
+QUERY_SOURCE=llm \
+LLM_PROVIDER=ollama \
+OLLAMA_HOST=host.docker.internal:11434 \
+docker compose run --rm rewards-farmer
 ```
 
-**A Linux host does work.** With no keyring running Chromium falls back to a fixed key, which is the case both on a plain Linux host and inside the image, so the volume carries a working sign-in straight in. Measured: a profile signed in on the host opened in the container already on `rewards.bing.com/dashboard` and earned from it.
+For an OpenAI-compatible API, set `QUERY_SOURCE=llm`, `LLM_PROVIDER=openai`, `LLM_MODEL`, and the appropriate `LLM_BASE_URL`/`LLM_API_KEY` values before running Compose.
 
-macOS is expected to fail the way Windows does, since it wraps the key with the login Keychain and the container cannot reach that either, but that case was not tested.
+## Sign in from inside the container
 
-**Provide the visual search image on the host too.** `visual_search.jpg` is not in the repository and is not built into the image, so create it once in the project root and the compose file mounts it in:
+This is the recommended Docker setup, especially on Windows and macOS hosts:
+
+```sh
+docker compose run --rm --service-ports signin
+```
+
+Open <http://localhost:6080>, sign in to Microsoft/Rewards in the Edge window shown there, then **close the Edge window on that screen**. The sign-in container exits and the profile remains in `data-dir`.
+
+`--service-ports` is required because `docker compose run` does not publish service ports by default.
+
+The noVNC page is published as `127.0.0.1:6080` only. It is intentionally not exposed to the LAN: while this service is running, that page contains a live Microsoft sign-in browser session. The underlying VNC port is not published at all.
+
+Why this matters: Chromium encrypts cookie values with an OS-derived key. A profile written by normal Edge on Windows uses DPAPI, and macOS uses the login Keychain; the Linux container cannot unwrap those host keys. Signing in with the container's own Edge makes the same environment both write and later read the profile.
+
+Sign-in remains fully manual. The helper does not read, store, or type your credentials.
+
+If you interrupt the sign-in container with Ctrl-C or `docker stop`, run the sign-in flow again before assuming the session was saved. Chromium persists some session state during its own clean browser shutdown, so closing the Edge window is the reliable path.
+
+For multiple accounts, sign in one profile at a time and then run them together:
+
+```sh
+REWARDS_ACCOUNTS=personal docker compose run --rm --service-ports signin
+REWARDS_ACCOUNTS=spare    docker compose run --rm --service-ports signin
+
+REWARDS_ACCOUNTS=personal,spare docker compose run --rm rewards-farmer
+```
+
+You can still sign in using a host browser on platforms where the host and container can read the same Chromium cookie key, but the in-container flow avoids that dependency.
+
+## Visual search in Docker
+
+`visual_search.jpg` is not tracked in the repository. Create it once on the host:
 
 ```sh
 python src/random_image_for_visual_search.py
 ```
 
-Without it every other task still runs; only the visual search one fails.
+Compose mounts it read-only into the container. If it is absent, the other tasks can still run; only visual search will fail/skip.
 
-Multiple accounts work the same way in the container:
-
-```sh
-REWARDS_ACCOUNTS=personal,spare docker compose run --rm rewards-farmer
-```
-
-`REWARDS_HEADLESS=1` is set in the image. It also works on the host if you want a run with no visible window; the pointer code needs an explicit window size in that mode, which `main.py` sets.
+`REWARDS_HEADLESS=1` is set for normal container runs. The dedicated `signin` service is the exception: it launches a headful Edge window on a virtual display and serves that display through noVNC.
 
 # Logging
 

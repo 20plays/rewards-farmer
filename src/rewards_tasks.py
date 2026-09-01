@@ -17,6 +17,7 @@ import mimic_typing
 import element_selectors
 
 VISUAL_SEARCH_IMAGE_PATH = os.path.abspath("visual_search.jpg")
+REWARDS_HOME_URL = "https://rewards.bing.com/"
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,8 @@ class RewardsTaskUtils:
 	def __init__(self, driver: webdriver.Edge):
 		self.driver = driver
 
-		self.driver.get("https://rewards.bing.com/")
+		self.driver.get(REWARDS_HOME_URL)
+		self.rewards_window_handle = self.driver.current_window_handle
 
 		self.tab_utils = tab_utils.TabUtils(driver)
 		self.tab_utils.ensure_focus()
@@ -60,6 +62,54 @@ class RewardsTaskUtils:
 	def wait_for_then_click(self, element_getter: Callable[[], WebElement], timeout: int = 10):
 		elem = self.wait_for_element(element_getter, timeout)
 		self.move_to_and_click(elem)
+
+	def restore_rewards_context(self, force_home: bool = False):
+		"""Put the next task back on the Rewards tab in a predictable state.
+
+		A task can fail while Selenium is focused on a Bing search or another
+		child tab. Closing "all other tabs" from there preserves the wrong tab
+		and can close the Rewards page itself, causing every later task to fail.
+		Track the original Rewards handle, return to it first, then close extras.
+		"""
+		handles = self.driver.window_handles
+
+		if not handles:
+			return
+
+		if self.rewards_window_handle not in handles:
+			# If a task really did close the original tab, salvage the first
+			# surviving window and turn it back into the Rewards tab.
+			self.rewards_window_handle = handles[0]
+
+		self.driver.switch_to.window(self.rewards_window_handle)
+		self.tab_utils.close_all_other_tabs(exceptions=[self.rewards_window_handle])
+
+		if force_home or not self.driver.current_url.startswith("https://rewards.bing.com/"):
+			self.driver.get(REWARDS_HOME_URL)
+
+		self.tab_utils.ensure_focus()
+
+	def clear_bing_search_query(self, retries: int = 2):
+		"""Clear the search field without trying to hit Bing's small X button."""
+		platform_name = str(self.driver.capabilities.get("platformName", "")).lower()
+		select_all = Keys.COMMAND if "mac" in platform_name else Keys.CONTROL
+		last_error = None
+
+		for _ in range(retries):
+			try:
+				search_bar = self.wait_for_element(self.elements.get_bing_search_bar)
+				search_bar.send_keys(select_all, "a", Keys.BACKSPACE)
+
+				if not (search_bar.get_attribute("value") or ""):
+					return
+			except StaleElementReferenceException as exc:
+				last_error = exc
+				continue
+
+		if last_error:
+			raise last_error
+
+		raise RuntimeError("Bing search field did not clear")
 
 	def complete_bing_daily_set(self, expected_activities: int = 3):
 		self.switch_to_earn_page()
@@ -262,15 +312,16 @@ class RewardsTaskUtils:
 
 			time.sleep(random.uniform(0.5, 1))
 
-			try: self.wait_for_then_click(self.elements.get_clear_bing_search_query_button)
+			try:
+				self.clear_bing_search_query()
 			except StaleElementReferenceException:
 				logger.warning(
-					"StaleElementReferenceException when trying to click the clear button for query %s. Trying again...",
+					"Search field went stale while clearing query %s. Trying once more...",
 					i + 1
 				)
-				self.wait_for_then_click(self.elements.get_clear_bing_search_query_button)
+				self.clear_bing_search_query()
 
-		self.driver.get("https://rewards.bing.com/")
+		self.driver.get(REWARDS_HOME_URL)
 		self.tab_utils.ensure_focus()
 
 	def claim_bonus_points(self):
@@ -300,19 +351,29 @@ class RewardsTaskUtils:
 			# The tags stay in the message rather than being folded into the
 			# level, they are the per-task outcome summary and reading a run
 			# means scanning for them.
+			reset_home = False
+
 			try:
 				step()
 				logger.info("[OK] %s", name)
 			except (NoSuchElementException, TimeoutException) as exc:
+				reset_home = True
 				logger.warning("[SKIP] %s: not available in this UI variant (%s)", name, type(exc).__name__)
 			except Exception as exc:
+				reset_home = True
 				logger.error(
 					"[FAIL] %s: %s: %s", name, type(exc).__name__, log_utils.exception_summary(exc),
 					exc_info=logger.isEnabledFor(logging.DEBUG)
 				)
-
-			# Leave a clean tab state behind for the next task.
-			try:
-				self.tab_utils.close_all_other_tabs()
-			except Exception:
-				pass
+			finally:
+				# A failed task may be focused on a Bing child tab. Return to
+				# the tracked Rewards tab before closing anything, and reload
+				# Rewards after a skip/failure so the next selector starts from
+				# a known page instead of inheriting the previous task's state.
+				try:
+					self.restore_rewards_context(force_home=reset_home)
+				except Exception as exc:
+					logger.warning(
+						"Could not fully reset browser state after %s: %s",
+						name, log_utils.exception_summary(exc)
+					)
