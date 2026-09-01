@@ -2,7 +2,7 @@ import os
 import sys
 import unittest
 
-from selenium.common.exceptions import StaleElementReferenceException
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 from selenium.webdriver.common.keys import Keys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
@@ -143,6 +143,25 @@ class TestSearchClearing(unittest.TestCase):
 		task.clear_bing_search_query()
 
 		self.assertEqual(fresh.value, "")
+
+
+class TestTaskOutcomeMessages(unittest.TestCase):
+	def test_timeout_is_not_reported_as_a_missing_ui_variant(self):
+		task = rewards_tasks.RewardsTaskUtils.__new__(rewards_tasks.RewardsTaskUtils)
+		task.complete_bing_daily_set = lambda: (_ for _ in ()).throw(TimeoutException())
+		task.complete_explore_on_bing_tasks = lambda: None
+		task.complete_visual_search = lambda: None
+		task.complete_misc_cards = lambda: None
+		task.complete_required_searches = lambda: None
+		task.claim_bonus_points = lambda: None
+		task.restore_rewards_context = lambda force_home=False: None
+
+		with self.assertLogs(rewards_tasks.logger, level="WARNING") as logged:
+			task.complete_all_tasks()
+
+		message = "\n".join(logged.output)
+		self.assertIn("timed out waiting for the current UI", message)
+		self.assertNotIn("Bing daily set: not available in this UI variant", message)
 
 
 if __name__ == "__main__":
