@@ -1,9 +1,10 @@
 """Where search queries come from.
 
-Two backends. `llm` is the default and is unchanged, so nothing about an
-existing setup moves. `trends` uses public feeds and needs no account, no
-model and no key, which is the difference between running this in five
-minutes and installing Ollama first.
+Two query sources are available:
+
+* `llm` (default) asks the provider configured by LLM_PROVIDER. Native Ollama
+  and OpenAI-compatible HTTP APIs are supported.
+* `trends` uses public feeds and needs no account, model or API key.
 
     QUERY_SOURCE=trends python src/main.py
 
@@ -16,11 +17,9 @@ import os
 
 import query_sources
 
-# llm_utils is imported inside the llm branch rather than here. It imports
-# ollama at module scope, so importing it eagerly would make the ollama package
-# a hard requirement even for a run that never touches a model, which is the
-# opposite of the point. A trends-only install, the Docker image for instance,
-# does not ship it.
+# llm_utils is imported inside the llm branch rather than here. That keeps the
+# trends path independent of whichever model provider is configured and avoids
+# initializing an LLM client during a trends-only run.
 
 logger = logging.getLogger(__name__)
 
