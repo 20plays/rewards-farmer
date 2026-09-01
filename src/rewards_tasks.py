@@ -356,9 +356,12 @@ class RewardsTaskUtils:
 			try:
 				step()
 				logger.info("[OK] %s", name)
-			except (NoSuchElementException, TimeoutException) as exc:
+			except NoSuchElementException as exc:
 				reset_home = True
 				logger.warning("[SKIP] %s: not available in this UI variant (%s)", name, type(exc).__name__)
+			except TimeoutException as exc:
+				reset_home = True
+				logger.warning("[SKIP] %s: timed out waiting for the current UI (%s)", name, type(exc).__name__)
 			except Exception as exc:
 				reset_home = True
 				logger.error(

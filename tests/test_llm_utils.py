@@ -16,6 +16,8 @@ LLM_ENV_VARS = (
 	llm_utils.API_KEY_ENV,
 	llm_utils.TIMEOUT_ENV,
 	llm_utils.EXTRA_HEADERS_ENV,
+	llm_utils.MAX_TOKENS_ENV,
+	llm_utils.ANTHROPIC_VERSION_ENV,
 	"OLLAMA_HOST",
 )
 
@@ -57,6 +59,11 @@ class TestProviderSelection(EnvironmentTestCase):
 		for value in ("openai", "openai-compatible", "openai_compatible"):
 			os.environ[llm_utils.PROVIDER_ENV] = value
 			self.assertEqual(llm_utils.selected_provider(), llm_utils.OPENAI)
+
+	def test_anthropic_aliases_resolve_to_anthropic(self):
+		for value in ("anthropic", "claude"):
+			os.environ[llm_utils.PROVIDER_ENV] = value
+			self.assertEqual(llm_utils.selected_provider(), llm_utils.ANTHROPIC)
 
 	def test_unknown_provider_fails_with_configuration_error(self):
 		os.environ[llm_utils.PROVIDER_ENV] = "mystery"
@@ -138,6 +145,87 @@ class TestOpenAICompatible(EnvironmentTestCase):
 
 		with self.assertRaisesRegex(ValueError, "LLM_MODEL"):
 			llm_utils.get_openai_compatible_response([])
+
+
+class TestAnthropicMessages(EnvironmentTestCase):
+	def setUp(self):
+		super().setUp()
+		os.environ[llm_utils.PROVIDER_ENV] = "anthropic"
+		os.environ[llm_utils.MODEL_ENV] = "claude-test"
+		os.environ[llm_utils.API_KEY_ENV] = "anthropic-secret"
+
+	def test_posts_messages_shape_and_extracts_text_blocks(self):
+		response = FakeResponse({
+			"content": [
+				{"type": "text", "text": "short "},
+				{"type": "text", "text": "query"},
+			]
+		})
+		messages = [
+			{"role": "system", "content": "Be concise."},
+			{"role": "user", "content": "Give a query."},
+			{"role": "assistant", "content": "previous"},
+			{"role": "user", "content": "next"},
+		]
+
+		with mock.patch.object(llm_utils.requests, "post", return_value=response) as post:
+			result = llm_utils.get_llm_response(messages)
+
+		self.assertEqual(result, "short query")
+		args, kwargs = post.call_args
+		self.assertEqual(args[0], "https://api.anthropic.com/v1/messages")
+		self.assertEqual(kwargs["headers"]["x-api-key"], "anthropic-secret")
+		self.assertEqual(
+			kwargs["headers"]["anthropic-version"],
+			llm_utils.DEFAULT_ANTHROPIC_VERSION
+		)
+		self.assertEqual(kwargs["json"]["model"], "claude-test")
+		self.assertEqual(
+			kwargs["json"]["max_tokens"],
+			llm_utils.DEFAULT_ANTHROPIC_MAX_TOKENS
+		)
+		self.assertEqual(kwargs["json"]["system"], "Be concise.")
+		self.assertEqual(
+			kwargs["json"]["messages"],
+			[
+				{"role": "user", "content": "Give a query."},
+				{"role": "assistant", "content": "previous"},
+				{"role": "user", "content": "next"},
+			]
+		)
+
+	def test_custom_messages_url_and_limits_are_supported(self):
+		os.environ[llm_utils.BASE_URL_ENV] = "https://claude-gateway.example/v1/messages"
+		os.environ[llm_utils.MAX_TOKENS_ENV] = "64"
+		os.environ[llm_utils.ANTHROPIC_VERSION_ENV] = "custom-version"
+
+		response = FakeResponse({"content": [{"type": "text", "text": "ok"}]})
+
+		with mock.patch.object(llm_utils.requests, "post", return_value=response) as post:
+			self.assertEqual(
+				llm_utils.get_anthropic_response([{"role": "user", "content": "hello"}]),
+				"ok"
+			)
+
+		self.assertEqual(post.call_args.args[0], "https://claude-gateway.example/v1/messages")
+		self.assertEqual(post.call_args.kwargs["json"]["max_tokens"], 64)
+		self.assertEqual(post.call_args.kwargs["headers"]["anthropic-version"], "custom-version")
+
+	def test_model_is_required_for_anthropic_mode(self):
+		os.environ.pop(llm_utils.MODEL_ENV, None)
+
+		with self.assertRaisesRegex(ValueError, "LLM_MODEL"):
+			llm_utils.get_anthropic_response([{"role": "user", "content": "hello"}])
+
+	def test_unknown_role_is_rejected_before_request(self):
+		with self.assertRaisesRegex(ValueError, "does not support role"):
+			llm_utils.get_anthropic_response([{"role": "tool", "content": "hello"}])
+
+	def test_max_tokens_must_be_positive_integer(self):
+		os.environ[llm_utils.MAX_TOKENS_ENV] = "nope"
+
+		with self.assertRaisesRegex(ValueError, "LLM_MAX_TOKENS"):
+			llm_utils.get_anthropic_response([{"role": "user", "content": "hello"}])
 
 
 class TestRetries(EnvironmentTestCase):

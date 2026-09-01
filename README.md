@@ -27,7 +27,7 @@ The bot needs short strings to type into Bing. `QUERY_SOURCE` chooses how those 
 
 | `QUERY_SOURCE` | Needs | Notes |
 | --- | --- | --- |
-| `llm` (default) | a configured LLM provider | Ollama or an OpenAI-compatible chat-completions API |
+| `llm` (default) | a configured LLM provider | Ollama, OpenAI-compatible Chat Completions, or Anthropic Messages |
 | `trends` | nothing | Google Trends, Wikipedia and Bing autosuggest |
 
 ```sh
@@ -45,6 +45,7 @@ When `QUERY_SOURCE=llm`, `LLM_PROVIDER` selects the transport:
 | --- | --- | --- |
 | `ollama` (default) | optional `LLM_MODEL`, `OLLAMA_HOST` or `LLM_BASE_URL` | local Ollama and Ollama cloud |
 | `openai` | `LLM_MODEL`, optional `LLM_BASE_URL`, `LLM_API_KEY` | any server implementing the OpenAI `/chat/completions` response shape |
+| `anthropic` | `LLM_MODEL`, `LLM_API_KEY`, optional `LLM_BASE_URL` | Anthropic's native Messages API shape |
 
 The OpenAI-compatible path is intentionally provider-neutral. It can point at a hosted API or a local server such as LM Studio, vLLM, llama.cpp server or LocalAI, as long as the endpoint accepts OpenAI-style chat completions.
 
@@ -52,12 +53,14 @@ Environment variables:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `LLM_PROVIDER` | `ollama` | `ollama` or `openai` |
-| `LLM_MODEL` | `gemma4:cloud` for Ollama | model identifier; required for `openai` |
-| `LLM_BASE_URL` | `https://api.openai.com/v1` for `openai` | API base URL, or a full URL ending in `/chat/completions` |
-| `LLM_API_KEY` | unset | sent as `Authorization: Bearer ...`; local endpoints may leave it unset |
+| `LLM_PROVIDER` | `ollama` | `ollama`, `openai`, or `anthropic` |
+| `LLM_MODEL` | `gemma4:cloud` for Ollama | model identifier; required for `openai` and `anthropic` |
+| `LLM_BASE_URL` | provider default | API base URL, or the full provider endpoint |
+| `LLM_API_KEY` | unset | Bearer key for OpenAI-compatible APIs; `x-api-key` for Anthropic |
 | `LLM_TIMEOUT` | `180` | request timeout in seconds |
 | `LLM_EXTRA_HEADERS_JSON` | unset | optional JSON object of extra HTTP headers |
+| `LLM_MAX_TOKENS` | `1024` | Anthropic response token cap; lower it if your chosen model reliably emits short answers |
+| `LLM_ANTHROPIC_VERSION` | `2023-06-01` | Anthropic Messages API version header |
 | `OLLAMA_HOST` | Ollama client default | existing Ollama host setting; `LLM_BASE_URL` takes precedence |
 
 Example: native Ollama (the existing behavior):
@@ -87,6 +90,16 @@ LLM_BASE_URL="http://127.0.0.1:1234/v1" \
 python src/main.py
 ```
 
+Example: Anthropic Messages API:
+
+```sh
+QUERY_SOURCE=llm \
+LLM_PROVIDER=anthropic \
+LLM_MODEL="your-claude-model-id" \
+LLM_API_KEY="your-anthropic-api-key" \
+python src/main.py
+```
+
 For providers that ask for additional headers, pass them without editing the source:
 
 ```sh
@@ -94,6 +107,15 @@ LLM_EXTRA_HEADERS_JSON='{"HTTP-Referer":"https://example.com","X-Title":"rewards
 ```
 
 Do not put real API keys in the repository. Set them in your shell, service manager, CI secret store, or another environment-injection mechanism.
+
+For Docker Compose, you can copy `.env.example` to `.env` and fill in the values. Compose reads `.env` automatically, and the repository ignores it so credentials are not accidentally committed:
+
+```sh
+cp .env.example .env
+docker compose run --rm rewards-farmer
+```
+
+A plain host-side `python src/main.py` run reads normal process environment variables; it does not parse `.env` itself.
 
 You must also provide an image for the script to upload to complete the visual search task. A helper script is included at `src/random_image_for_visual_search.py` that will download an image from Wikipedia named `visual_search.jpg` into the project root for you. You may also provide an image of your own, just ensure that the absolute path of the image is placed in the `VISUAL_SEARCH_IMAGE_PATH` constant at the top of `rewards_tasks.py`.
 
@@ -160,7 +182,7 @@ OLLAMA_HOST=host.docker.internal:11434 \
 docker compose run --rm rewards-farmer
 ```
 
-For an OpenAI-compatible API, set `QUERY_SOURCE=llm`, `LLM_PROVIDER=openai`, `LLM_MODEL`, and the appropriate `LLM_BASE_URL`/`LLM_API_KEY` values before running Compose.
+For an OpenAI-compatible API, set `QUERY_SOURCE=llm`, `LLM_PROVIDER=openai`, `LLM_MODEL`, and the appropriate `LLM_BASE_URL`/`LLM_API_KEY` values before running Compose. For Anthropic, use `LLM_PROVIDER=anthropic`, a Claude model ID, and `LLM_API_KEY`.
 
 ## Sign in from inside the container
 
