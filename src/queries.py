@@ -2,8 +2,8 @@
 
 Two query sources are available:
 
-* `llm` (default) asks the provider configured by LLM_PROVIDER. Native Ollama
-  and OpenAI-compatible HTTP APIs are supported.
+* `llm` (default) asks the provider configured by LLM_PROVIDER. Native Ollama,
+  OpenAI-compatible Chat Completions, and Anthropic Messages APIs are supported.
 * `trends` uses public feeds and needs no account, model or API key.
 
     QUERY_SOURCE=trends python src/main.py
