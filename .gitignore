@@ -7,3 +7,7 @@ visual_search.json
 Todo.md
 data-dir/
 __pycache__/
+# Local API/provider credentials
+.env
+.env.*
+!.env.example
