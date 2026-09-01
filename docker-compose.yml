@@ -1,20 +1,16 @@
-# docker compose run --rm rewards-farmer
+# Sign a profile in once, then run against it:
 #
-# Sign-in has to happen once by hand before this is useful: the profile in
-# data-dir starts logged out. See the Docker section of the README.
+#   docker compose run --rm --service-ports signin
+#   docker compose run --rm rewards-farmer
 
 services:
   rewards-farmer:
     build: .
     image: rewards-farmer
-    # Chromium wants more than the default 64MB of shared memory and crashes
-    # partway through a page without it.
     shm_size: 1gb
     environment:
-      # trends needs no account or model, which is why it is the default here.
-      # For LLM mode, choose native Ollama or any OpenAI-compatible endpoint.
-      # localhost inside a container is the container, so a model server on the
-      # host is normally reached through host.docker.internal.
+      # trends is the zero-configuration default. For LLM mode, choose native
+      # Ollama or any OpenAI-compatible /chat/completions endpoint.
       QUERY_SOURCE: ${QUERY_SOURCE:-trends}
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
       LLM_MODEL: ${LLM_MODEL:-}
@@ -23,15 +19,26 @@ services:
       LLM_TIMEOUT: ${LLM_TIMEOUT:-}
       LLM_EXTRA_HEADERS_JSON: ${LLM_EXTRA_HEADERS_JSON:-}
       REWARDS_HEADLESS: "1"
-      # Comma separated, one profile directory each. Leave unset for a single
-      # profile in data-dir, which is the existing behaviour.
       REWARDS_ACCOUNTS: ${REWARDS_ACCOUNTS:-}
       OLLAMA_HOST: ${OLLAMA_HOST:-}
     volumes:
-      # Keeps the sign-in across container rebuilds.
       - ./data-dir:/app/data-dir
-      # The visual search task uploads this file, which is gitignored and so is
-      # never in the image. Create it first with
-      # `python src/random_image_for_visual_search.py`; a path that does not
-      # exist yet is mounted as an empty directory rather than a file.
       - ./visual_search.jpg:/app/visual_search.jpg:ro
+
+  # One-off sign-in. The Edge instance that writes the profile runs inside the
+  # same Linux image that later reads it, avoiding Windows DPAPI/macOS Keychain
+  # incompatibility with Chromium cookies.
+  signin:
+    build: .
+    image: rewards-farmer
+    shm_size: 1gb
+    command: ["python", "src/signin.py"]
+    environment:
+      # Sign in one profile at a time.
+      REWARDS_ACCOUNTS: ${REWARDS_ACCOUNTS:-}
+    ports:
+      # Security boundary: while this service is running, this is a live
+      # Microsoft sign-in screen. Never publish it on 0.0.0.0.
+      - "127.0.0.1:6080:6080"
+    volumes:
+      - ./data-dir:/app/data-dir
