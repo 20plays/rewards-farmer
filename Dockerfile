@@ -5,9 +5,9 @@
 # recording and visualisation scripts, which are developer tools rather than
 # part of a run, and two of them are Windows-only.
 #
-# QUERY_SOURCE defaults to trends here so a container needs no Ollama account
-# and no model download. Set it to llm and point OLLAMA_HOST at a reachable
-# host to use a model instead.
+# QUERY_SOURCE defaults to trends here so a container needs no LLM at all.
+# Set it to llm to use either Ollama or an OpenAI-compatible API; provider
+# settings are passed through by docker-compose.yml.
 
 FROM python:3.12-slim-bookworm
 
@@ -38,7 +38,11 @@ RUN EDGE_VERSION="$(microsoft-edge --version | awk '{print $3}')" \
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir "selenium>=4.46.0,<5.0.0" "numpy"
+RUN pip install --no-cache-dir \
+	"selenium>=4.46.0,<5.0.0" \
+	"numpy" \
+	"requests>=2.32.0" \
+	"ollama>=0.6.2,<0.7.0"
 
 COPY src/ ./src/
 COPY nouns.txt ./
