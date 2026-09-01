@@ -108,6 +108,15 @@ LLM_EXTRA_HEADERS_JSON='{"HTTP-Referer":"https://example.com","X-Title":"rewards
 
 Do not put real API keys in the repository. Set them in your shell, service manager, CI secret store, or another environment-injection mechanism.
 
+For Docker Compose, you can copy `.env.example` to `.env` and fill in the values. Compose reads `.env` automatically, and the repository ignores it so credentials are not accidentally committed:
+
+```sh
+cp .env.example .env
+docker compose run --rm rewards-farmer
+```
+
+A plain host-side `python src/main.py` run reads normal process environment variables; it does not parse `.env` itself.
+
 You must also provide an image for the script to upload to complete the visual search task. A helper script is included at `src/random_image_for_visual_search.py` that will download an image from Wikipedia named `visual_search.jpg` into the project root for you. You may also provide an image of your own, just ensure that the absolute path of the image is placed in the `VISUAL_SEARCH_IMAGE_PATH` constant at the top of `rewards_tasks.py`.
 
 Activate the virtual environment & install dependencies (you may have to use `python -m poetry` instead of `poetry`).
