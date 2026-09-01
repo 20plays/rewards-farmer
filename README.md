@@ -59,7 +59,7 @@ Environment variables:
 | `LLM_API_KEY` | unset | Bearer key for OpenAI-compatible APIs; `x-api-key` for Anthropic |
 | `LLM_TIMEOUT` | `180` | request timeout in seconds |
 | `LLM_EXTRA_HEADERS_JSON` | unset | optional JSON object of extra HTTP headers |
-| `LLM_MAX_TOKENS` | `128` | Anthropic response token cap; queries should be very short |
+| `LLM_MAX_TOKENS` | `1024` | Anthropic response token cap; lower it if your chosen model reliably emits short answers |
 | `LLM_ANTHROPIC_VERSION` | `2023-06-01` | Anthropic Messages API version header |
 | `OLLAMA_HOST` | Ollama client default | existing Ollama host setting; `LLM_BASE_URL` takes precedence |
 
