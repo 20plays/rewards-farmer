@@ -10,7 +10,7 @@ services:
     shm_size: 1gb
     environment:
       # trends is the zero-configuration default. For LLM mode, choose native
-      # Ollama or any OpenAI-compatible /chat/completions endpoint.
+      # Ollama, OpenAI-compatible Chat Completions, or Anthropic Messages.
       QUERY_SOURCE: ${QUERY_SOURCE:-trends}
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
       LLM_MODEL: ${LLM_MODEL:-}
@@ -18,6 +18,8 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_TIMEOUT: ${LLM_TIMEOUT:-}
       LLM_EXTRA_HEADERS_JSON: ${LLM_EXTRA_HEADERS_JSON:-}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-}
+      LLM_ANTHROPIC_VERSION: ${LLM_ANTHROPIC_VERSION:-}
       REWARDS_HEADLESS: "1"
       REWARDS_ACCOUNTS: ${REWARDS_ACCOUNTS:-}
       OLLAMA_HOST: ${OLLAMA_HOST:-}
