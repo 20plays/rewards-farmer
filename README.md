@@ -21,11 +21,11 @@ cd rewards-farmer
 
 # Where search queries come from
 
-The bot needs short strings to type into Bing. Two backends produce them, set with `QUERY_SOURCE`:
+The bot needs short strings to type into Bing. `QUERY_SOURCE` chooses how those strings are produced:
 
 | `QUERY_SOURCE` | Needs | Notes |
 | --- | --- | --- |
-| `llm` (default) | Ollama account + model | Current behaviour, unchanged |
+| `llm` (default) | a configured LLM provider | Ollama or an OpenAI-compatible chat-completions API |
 | `trends` | nothing | Google Trends, Wikipedia and Bing autosuggest |
 
 ```sh
@@ -33,9 +33,65 @@ QUERY_SOURCE=trends python src/main.py          # bash
 $env:QUERY_SOURCE="trends"; python src/main.py  # PowerShell
 ```
 
-`trends` needs no account, no API key and no model download, so the Ollama setup below is optional if you use it. If every feed is unreachable it falls back to `nouns.txt` rather than failing the run.
+`trends` needs no account, API key or model. If every feed is unreachable it falls back to `nouns.txt` rather than failing the run.
 
-You should also have an Ollama account created (for the LLM), the `ollama` tool installed, and you should have signed in to the Ollama CLI via the command line using `ollama signin`. This project will use a minimal amount of Ollama cloud usage using `gemma4:cloud`. If you wish to use a different model, please change the `model` parameter in the `get_ollama_response` function in `src/llm_utils.py`.
+## LLM providers and APIs
+
+When `QUERY_SOURCE=llm`, `LLM_PROVIDER` selects the transport:
+
+| `LLM_PROVIDER` | Configuration | What it supports |
+| --- | --- | --- |
+| `ollama` (default) | optional `LLM_MODEL`, `OLLAMA_HOST` or `LLM_BASE_URL` | local Ollama and Ollama cloud |
+| `openai` | `LLM_MODEL`, optional `LLM_BASE_URL`, `LLM_API_KEY` | any server implementing the OpenAI `/chat/completions` response shape |
+
+The OpenAI-compatible path is intentionally provider-neutral. It can point at a hosted API or a local server such as LM Studio, vLLM, llama.cpp server or LocalAI, as long as the endpoint accepts OpenAI-style chat completions.
+
+Environment variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `LLM_PROVIDER` | `ollama` | `ollama` or `openai` |
+| `LLM_MODEL` | `gemma4:cloud` for Ollama | model identifier; required for `openai` |
+| `LLM_BASE_URL` | `https://api.openai.com/v1` for `openai` | API base URL, or a full URL ending in `/chat/completions` |
+| `LLM_API_KEY` | unset | sent as `Authorization: Bearer ...`; local endpoints may leave it unset |
+| `LLM_TIMEOUT` | `180` | request timeout in seconds |
+| `LLM_EXTRA_HEADERS_JSON` | unset | optional JSON object of extra HTTP headers |
+| `OLLAMA_HOST` | Ollama client default | existing Ollama host setting; `LLM_BASE_URL` takes precedence |
+
+Example: native Ollama (the existing behavior):
+
+```sh
+QUERY_SOURCE=llm LLM_PROVIDER=ollama LLM_MODEL=gemma4:cloud python src/main.py
+```
+
+Example: a hosted OpenAI-compatible API:
+
+```sh
+QUERY_SOURCE=llm \
+LLM_PROVIDER=openai \
+LLM_MODEL="your-model-id" \
+LLM_BASE_URL="https://provider.example/v1" \
+LLM_API_KEY="your-api-key" \
+python src/main.py
+```
+
+Example: a local OpenAI-compatible server with no key:
+
+```sh
+QUERY_SOURCE=llm \
+LLM_PROVIDER=openai \
+LLM_MODEL="your-local-model" \
+LLM_BASE_URL="http://127.0.0.1:1234/v1" \
+python src/main.py
+```
+
+For providers that ask for additional headers, pass them without editing the source:
+
+```sh
+LLM_EXTRA_HEADERS_JSON='{"HTTP-Referer":"https://example.com","X-Title":"rewards-farmer"}'
+```
+
+Do not put real API keys in the repository. Set them in your shell, service manager, CI secret store, or another environment-injection mechanism.
 
 You must also provide an image for the script to upload to complete the visual search task. A helper script is included at `src/random_image_for_visual_search.py` that will download an image from Wikipedia named `visual_search.jpg` into the project root for you. You may also provide an image of your own, just ensure that the absolute path of the image is placed in the `VISUAL_SEARCH_IMAGE_PATH` constant at the top of `rewards_tasks.py`.
 
